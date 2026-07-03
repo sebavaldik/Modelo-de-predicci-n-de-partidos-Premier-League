@@ -1,0 +1,680 @@
+================================================================================
+          DICCIONARIO DE DATOS - PREMIER LEAGUE PREDICTION MODEL
+================================================================================
+
+Este documento explica cada columna de cada archivo CSV generado por los
+scripts de scraping y el pipeline de features.
+
+Fuentes de datos:
+  - FBref (fbref.com) via soccerdata: fixtures, estadísticas de equipos y jugadores
+  - football-data.co.uk: resultados, estadísticas in-game, odds de apuestas
+
+Temporadas cubiertas: 2017-2018 a 2024-2025 (8 temporadas)
+
+Total de archivos generados: 16 CSVs
+  - 3 de partidos (matches)
+  - 5 de estadísticas de equipos (team_stats)
+  - 5 de estadísticas de jugadores (player_stats)
+  - 1 dataset de features para modelado (model_dataset)
+  - 2 auxiliares (matches_fbref raw, matches_odds raw)
+
+
+================================================================================
+1. matches_fbref.csv  (Fuente: FBref via soccerdata)
+   3040 filas | 19 columnas
+================================================================================
+
+Cada fila es un partido de la Premier League extraído de FBref.
+
+league          Liga ("ENG-Premier League")
+season          Código de temporada en FBref (ej: "1718", "2324")
+game            Identificador del partido (fecha + equipos, ej: "2023-08-11 Burnley-Manchester City")
+gameweek        Número de jornada (1 a 38)
+day             Día de la semana abreviado en inglés (Mon, Tue, Wed, Thu, Fri, Sat, Sun)
+date            Fecha del partido (YYYY-MM-DD)
+time            Hora de inicio en formato UK (ej: "20:00 (15:00)" donde el paréntesis es hora ET)
+home            Nombre del equipo local
+score           Marcador final tal como aparece en FBref (ej: "2–1" con guión largo)
+away            Nombre del equipo visitante
+attendance      Asistencia al estadio (número de espectadores)
+venue           Nombre del estadio (ej: "Emirates Stadium")
+referee         Nombre del árbitro principal
+match_report    URL relativa al reporte detallado del partido en FBref
+notes           Notas especiales (ej: partidos aplazados). Generalmente vacío
+game_id         ID único del partido en FBref (hash alfanumérico, ej: "3a6836b4")
+home_goals      Goles del equipo local (entero, parseado del score)
+away_goals      Goles del equipo visitante (entero, parseado del score)
+result          Resultado: H = Home win, D = Draw, A = Away win
+
+
+================================================================================
+2. matches_odds.csv  (Fuente: football-data.co.uk)
+   3040 filas | 28 columnas
+================================================================================
+
+Cada fila es un partido. Contiene resultados, estadísticas in-game y cuotas
+de apuestas. Las columnas ya están renombradas desde los nombres originales
+de football-data.co.uk para mayor claridad.
+
+--- RESULTADO Y EQUIPOS ---
+
+date                Fecha del partido
+home_fd             Nombre del equipo local (nomenclatura de football-data)
+away_fd             Nombre del equipo visitante (nomenclatura de football-data)
+fd_home_goals       Goles del local al final del partido
+fd_away_goals       Goles del visitante al final del partido
+fd_result           Resultado final: H (Home), D (Draw), A (Away)
+season              Temporada en formato "YYYY-YYYY"
+
+--- RESULTADO AL MEDIO TIEMPO ---
+
+ht_home_goals       Goles del local al medio tiempo
+ht_away_goals       Goles del visitante al medio tiempo
+ht_result           Resultado al medio tiempo (H/D/A)
+
+--- ESTADÍSTICAS IN-GAME (ocurrieron durante el partido) ---
+
+home_shots          Tiros totales del equipo local
+away_shots          Tiros totales del equipo visitante
+home_shots_target   Tiros a puerta del local (fueron directo al arco)
+away_shots_target   Tiros a puerta del visitante
+home_fouls          Faltas cometidas por el local
+away_fouls          Faltas cometidas por el visitante
+home_corners        Tiros de esquina del local
+away_corners        Tiros de esquina del visitante
+home_yellow         Tarjetas amarillas del local
+away_yellow         Tarjetas amarillas del visitante
+home_red            Tarjetas rojas del local
+away_red            Tarjetas rojas del visitante
+
+--- CUOTAS DE APUESTAS (ODDS) ---
+
+Las cuotas representan cuánto paga una casa por cada $1 apostado.
+Odds más bajos = el mercado cree que es más probable.
+Probabilidad implícita = 1 / odds
+
+odds_home_b365      Bet365 - cuota para victoria local
+odds_draw_b365      Bet365 - cuota para empate
+odds_away_b365      Bet365 - cuota para victoria visitante
+odds_home_bw        Bet&Win - cuota para victoria local
+odds_draw_bw        Bet&Win - cuota para empate
+odds_away_bw        Bet&Win - cuota para victoria visitante
+
+
+================================================================================
+3. matches_combined.csv  (Merge de FBref + football-data.co.uk)
+   3730 filas | 45 columnas
+================================================================================
+
+Combina datos de ambas fuentes en un solo archivo. El merge se hizo por
+fecha + goles + temporada.
+
+Tiene 3730 filas (más que las 3040 individuales) porque incluye partidos
+de FBref que no encontraron match exacto en football-data.
+
+Columnas: todas las de matches_fbref.csv + todas las de matches_odds.csv.
+Las filas sin match en football-data tendrán NaN en las columnas de odds
+y estadísticas in-game.
+
+
+================================================================================
+4. team_stats_standard.csv  (Fuente: FBref)
+   160 filas (20 equipos x 8 temporadas) | 25 columnas
+================================================================================
+
+Estadísticas ESTÁNDAR agregadas de cada equipo en toda la temporada.
+Cada fila = un equipo en una temporada completa.
+
+--- IDENTIFICACIÓN ---
+
+season_label            Temporada en formato "YYYY-YYYY"
+league                  Liga ("ENG-Premier League")
+season_code             Código interno de FBref (ej: "2324")
+team                    Nombre del equipo
+
+--- GENERALES ---
+
+players_used            Número total de jugadores distintos que jugaron en la temporada
+Age                     Edad promedio ponderada del plantel
+Poss                    Posesión promedio del equipo (porcentaje)
+
+--- TIEMPO DE JUEGO ---
+
+Playing Time_MP         Matches Played - Partidos jugados (siempre 38 en PL completa)
+Playing Time_Starts     Suma de titularidades de todos los jugadores
+Playing Time_Min        Minutos totales jugados por todos los jugadores
+Playing Time_90s        Equivalente en partidos de 90 minutos (Min / 90)
+
+--- RENDIMIENTO ---
+
+Performance_Gls         Goles totales anotados por el equipo
+Performance_Ast         Asistencias totales
+Performance_G+A         Goles + Asistencias
+Performance_G-PK        Goles sin contar penales (Non-Penalty Goals)
+Performance_PK          Penales convertidos
+Performance_PKatt       Penales intentados (cobrados)
+Performance_CrdY        Tarjetas amarillas totales del equipo
+Performance_CrdR        Tarjetas rojas totales
+
+--- POR 90 MINUTOS ---
+
+Per 90 Minutes_Gls      Goles por cada 90 minutos jugados
+Per 90 Minutes_Ast      Asistencias por cada 90 minutos
+Per 90 Minutes_G+A      Goles+Asistencias por 90 minutos
+Per 90 Minutes_G-PK     Goles sin penales por 90 minutos
+Per 90 Minutes_G+A-PK   G+A sin penales por 90 minutos
+
+url                     URL de la página del equipo en FBref
+
+
+================================================================================
+5. team_stats_keeper.csv  (Fuente: FBref)
+   160 filas | 25 columnas
+================================================================================
+
+Estadísticas de PORTEROS agregadas a nivel de equipo por temporada.
+
+--- IDENTIFICACIÓN ---
+
+season_label / league / season_code / team / players_used  (igual que standard)
+
+--- TIEMPO DE JUEGO ---
+
+Playing Time_MP         Partidos jugados
+Playing Time_Starts     Titularidades
+Playing Time_Min        Minutos jugados
+Playing Time_90s        Equivalente en 90 minutos
+
+--- RENDIMIENTO DEL PORTERO ---
+
+Performance_GA          Goals Against - Goles recibidos (en contra)
+Performance_GA90        Goals Against per 90 - Goles recibidos por cada 90 min
+Performance_SoTA        Shots on Target Against - Tiros a puerta recibidos
+Performance_Saves       Atajadas (paradas) realizadas
+Performance_Save%       Porcentaje de atajadas (Saves / SoTA * 100)
+Performance_W           Partidos ganados (wins)
+Performance_D           Partidos empatados (draws)
+Performance_L           Partidos perdidos (losses)
+Performance_CS          Clean Sheets - Partidos sin recibir gol ("portería a cero")
+Performance_CS%         Porcentaje de clean sheets
+
+--- PENALES ---
+
+Penalty Kicks_PKatt     Penales enfrentados por los porteros
+Penalty Kicks_PKA       Penales recibidos (gol del rival)
+Penalty Kicks_PKsv      Penales atajados (detenidos)
+Penalty Kicks_PKm       Penales que el rival falló (fuera/poste, no atajada)
+Penalty Kicks_Save%     Porcentaje de penales detenidos
+
+url                     URL de la página del equipo en FBref
+
+
+================================================================================
+6. team_stats_shooting.csv  (Fuente: FBref)
+   160 filas | 17 columnas
+================================================================================
+
+Estadísticas de TIROS de cada equipo en toda la temporada.
+
+--- IDENTIFICACIÓN ---
+
+season_label / league / season_code / team / players_used  (igual que standard)
+
+--- TIROS ---
+
+90s                     Total de "90 minutos" jugados por el equipo
+Standard_Gls            Goles anotados
+Standard_Sh             Tiros totales (excluyendo penales y tiros libres)
+Standard_SoT            Shots on Target - Tiros que iban directo al arco
+Standard_SoT%           Porcentaje de tiros a puerta sobre el total
+Standard_Sh/90          Tiros por cada 90 minutos
+Standard_SoT/90         Tiros a puerta por cada 90 minutos
+Standard_G/Sh           Goals per Shot - Goles por tiro (efectividad)
+Standard_G/SoT          Goals per Shot on Target - Goles por tiro a puerta
+Standard_PK             Penales convertidos
+Standard_PKatt          Penales intentados
+
+url                     URL de la página del equipo en FBref
+
+
+================================================================================
+7. team_stats_playing_time.csv  (Fuente: FBref)
+   160 filas | 23 columnas
+================================================================================
+
+Estadísticas de TIEMPO DE JUEGO del equipo: cómo se reparten los minutos.
+
+--- IDENTIFICACIÓN ---
+
+season_label / league / season_code / team / players_used / Age
+
+--- TIEMPO GLOBAL ---
+
+Playing Time_MP         Partidos jugados
+Playing Time_Min        Minutos totales jugados
+Playing Time_Mn/MP      Minutos promedio por partido
+Playing Time_Min%       Porcentaje del total de minutos posibles jugados
+Playing Time_90s        Equivalente en 90 minutos
+
+--- TITULARES ---
+
+Starts_Starts           Número total de titularidades
+Starts_Mn/Start         Minutos promedio por titularidad
+Starts_Compl            Titularidades completadas (jugó los 90 minutos)
+
+--- SUPLENTES ---
+
+Subs_Subs               Veces que entró como suplente
+Subs_Mn/Sub             Minutos promedio cuando entró como suplente
+Subs_unSub              Veces que no fue sustituido estando en cancha (jugó hasta el final)
+
+--- ÉXITO DEL EQUIPO (cuánto rinde el equipo con estos jugadores) ---
+
+Team Success_PPM        Points Per Match - Puntos por partido
+Team Success_onG        Goles a favor cuando los jugadores están en cancha
+Team Success_onGA       Goles en contra cuando están en cancha
+Team Success_+/-        Diferencia de goles con los jugadores en cancha
+Team Success_+/-90      Diferencia de goles por 90 minutos en cancha
+
+url                     URL de la página del equipo en FBref
+
+
+================================================================================
+8. team_stats_misc.csv  (Fuente: FBref)
+   160 filas | 19 columnas
+================================================================================
+
+Estadísticas MISCELÁNEAS de cada equipo.
+
+--- IDENTIFICACIÓN ---
+
+season_label / league / season_code / team / players_used
+
+--- DISCIPLINA Y ACCIONES ---
+
+90s                     Total de "90 minutos" jugados
+Performance_CrdY        Tarjetas amarillas totales
+Performance_CrdR        Tarjetas rojas totales
+Performance_2CrdY       Dobles amarillas (segunda amarilla = expulsión)
+Performance_Fls         Fouls committed - Faltas cometidas
+Performance_Fld         Fouls drawn - Faltas recibidas (a favor)
+Performance_Off         Offsides - Fueras de juego cometidos
+Performance_Crs         Crosses - Centros enviados al área
+Performance_Int         Interceptions - Intercepciones
+Performance_TklW        Tackles Won - Entradas ganadas (quitan el balón)
+Performance_PKwon       Penales ganados (faltas recibidas en el área rival)
+Performance_PKcon       Penales concedidos (faltas hechas en el área propia)
+Performance_OG          Own Goals - Autogoles
+
+url                     URL de la página del equipo en FBref
+
+
+================================================================================
+9. player_stats_standard.csv  (Fuente: FBref)
+   4360 filas | 26 columnas
+================================================================================
+
+Estadísticas ESTÁNDAR de CADA JUGADOR que participó en la Premier League
+en cada temporada. ~545 jugadores por temporada.
+
+--- IDENTIFICACIÓN ---
+
+season_label        Temporada "YYYY-YYYY"
+league              Liga ("ENG-Premier League")
+season_code         Código interno de FBref
+team                Equipo al que pertenece
+player              Nombre completo del jugador
+nation              Nacionalidad (código ISO, ej: "eng ENG", "br BRA")
+pos                 Posición(es) del jugador:
+                      GK = Goalkeeper (portero)
+                      DF = Defender (defensa)
+                      MF = Midfielder (mediocampista)
+                      FW = Forward (delantero)
+                      Puede ser combinada: "FW,MF" = delantero que también juega de medio
+age                 Edad del jugador durante la temporada
+born                Año de nacimiento
+
+--- TIEMPO DE JUEGO ---
+
+Playing Time_MP     Matches Played - Partidos en los que participó
+Playing Time_Starts Partidos como titular (en el once inicial)
+Playing Time_Min    Minutos totales jugados
+Playing Time_90s    Equivalente en partidos de 90 minutos (Min / 90)
+
+--- RENDIMIENTO ---
+
+Performance_Gls     Goles anotados
+Performance_Ast     Asistencias (pases que terminaron en gol)
+Performance_G+A     Goles + Asistencias (contribución directa a goles)
+Performance_G-PK    Goles sin contar penales
+Performance_PK      Penales convertidos
+Performance_PKatt   Penales intentados
+Performance_CrdY    Tarjetas amarillas recibidas
+Performance_CrdR    Tarjetas rojas recibidas
+
+--- POR 90 MINUTOS ---
+
+Per 90 Minutes_Gls      Goles por cada 90 minutos
+Per 90 Minutes_Ast      Asistencias por cada 90 minutos
+Per 90 Minutes_G+A      G+A por cada 90 minutos
+Per 90 Minutes_G-PK     Goles sin penales por cada 90 minutos
+Per 90 Minutes_G+A-PK   G+A sin penales por cada 90 minutos
+
+
+================================================================================
+10. player_stats_keeper.csv  (Fuente: FBref)
+    320 filas (~40 porteros x 8 temporadas) | 28 columnas
+================================================================================
+
+Estadísticas específicas de PORTEROS.
+
+--- IDENTIFICACIÓN ---
+
+season_label / league / season_code / team / player / nation / pos / age / born
+
+--- TIEMPO DE JUEGO ---
+
+Playing Time_MP     Partidos jugados
+Playing Time_Starts Titularidades
+Playing Time_Min    Minutos jugados
+Playing Time_90s    Equivalente en 90 min
+
+--- RENDIMIENTO ---
+
+Performance_GA      Goals Against - Goles recibidos
+Performance_GA90    Goles recibidos por 90 minutos
+Performance_SoTA    Shots on Target Against - Tiros a puerta que enfrentó
+Performance_Saves   Atajadas realizadas
+Performance_Save%   Porcentaje de atajadas
+Performance_W       Partidos ganados
+Performance_D       Partidos empatados
+Performance_L       Partidos perdidos
+Performance_CS      Clean Sheets - Partidos sin recibir gol
+Performance_CS%     Porcentaje de clean sheets
+
+--- PENALES ---
+
+Penalty Kicks_PKatt Penales enfrentados
+Penalty Kicks_PKA   Penales recibidos (gol)
+Penalty Kicks_PKsv  Penales atajados
+Penalty Kicks_PKm   Penales fallados por el rival
+Penalty Kicks_Save% Porcentaje de penales detenidos
+
+
+================================================================================
+11. player_stats_shooting.csv  (Fuente: FBref)
+    4360 filas | 20 columnas
+================================================================================
+
+Estadísticas de TIROS de cada jugador.
+
+--- IDENTIFICACIÓN ---
+
+season_label / league / season_code / team / player / nation / pos / age / born
+
+--- TIROS ---
+
+90s                 Equivalente en 90 minutos jugados
+Standard_Gls        Goles anotados
+Standard_Sh         Tiros totales (sin penales ni tiros libres)
+Standard_SoT        Tiros a puerta
+Standard_SoT%       Porcentaje de tiros a puerta
+Standard_Sh/90      Tiros por cada 90 minutos
+Standard_SoT/90     Tiros a puerta por cada 90 minutos
+Standard_G/Sh       Goles por tiro (efectividad)
+Standard_G/SoT      Goles por tiro a puerta
+Standard_PK         Penales convertidos
+Standard_PKatt      Penales intentados
+
+
+================================================================================
+12. player_stats_playing_time.csv  (Fuente: FBref)
+    5327 filas | 26 columnas
+================================================================================
+
+Detalle de TIEMPO DE JUEGO de cada jugador. Tiene más filas (~665/temporada)
+porque incluye jugadores con minutos mínimos.
+
+--- IDENTIFICACIÓN ---
+
+season_label / league / season_code / team / player / nation / pos / age / born
+
+--- TIEMPO JUGADO ---
+
+Playing Time_MP     Partidos en los que participó
+Playing Time_Min    Minutos totales jugados
+Playing Time_Mn/MP  Minutos promedio por partido
+Playing Time_Min%   Porcentaje del total de minutos del equipo
+Playing Time_90s    Equivalente en 90 minutos
+
+--- TITULARIDADES ---
+
+Starts_Starts       Partidos como titular
+Starts_Mn/Start     Minutos promedio en partidos como titular
+Starts_Compl        Partidos como titular en los que jugó los 90 completos
+
+--- SUPLENCIAS ---
+
+Subs_Subs           Veces que entró como sustituto
+Subs_Mn/Sub         Minutos promedio cuando entró como suplente
+Subs_unSub          Veces que no fue sustituido (jugó hasta el final)
+
+--- IMPACTO EN EL EQUIPO ---
+
+Team Success_PPM    Points Per Match - Puntos por partido cuando el jugador juega
+Team Success_onG    Goles del equipo cuando el jugador está en cancha
+Team Success_onGA   Goles en contra cuando está en cancha
+Team Success_+/-    Diferencia de goles con el jugador en cancha
+Team Success_+/-90  Diferencia de goles por 90 min con el jugador en cancha
+Team Success_On-Off Diferencia entre el rendimiento del equipo CON el jugador
+                    vs SIN él (positivo = el equipo rinde mejor con él)
+
+
+================================================================================
+13. player_stats_misc.csv  (Fuente: FBref)
+    4360 filas | 22 columnas
+================================================================================
+
+Estadísticas MISCELÁNEAS de cada jugador.
+
+--- IDENTIFICACIÓN ---
+
+season_label / league / season_code / team / player / nation / pos / age / born
+
+--- DATOS ---
+
+90s                     Equivalente en 90 minutos jugados
+Performance_CrdY        Tarjetas amarillas recibidas
+Performance_CrdR        Tarjetas rojas recibidas
+Performance_2CrdY       Dobles amarillas (segunda amarilla)
+Performance_Fls         Faltas cometidas
+Performance_Fld         Faltas recibidas (le hacen falta)
+Performance_Off         Offsides - Fueras de juego
+Performance_Crs         Centros enviados al área
+Performance_Int         Intercepciones realizadas
+Performance_TklW        Tackles ganados (entradas exitosas)
+Performance_PKwon       Penales provocados (a favor de su equipo)
+Performance_PKcon       Penales causados (en contra de su equipo)
+Performance_OG          Autogoles cometidos
+
+
+================================================================================
+14. model_dataset.csv  (Generado por build_features.py)
+    3709 filas | 62 columnas
+    *** ESTE ES EL ARCHIVO PRINCIPAL PARA ENTRENAR MODELOS ***
+================================================================================
+
+Cada fila es un partido con features calculadas ANTES del partido
+(sin data leakage). Todas las features "rolling" usan shift(1) para
+que no incluyan información del partido actual.
+
+===== IDENTIFICACIÓN DEL PARTIDO (NO usar como features) =====
+
+season              Temporada ("2023-2024")
+date                Fecha del partido (YYYY-MM-DD)
+home                Nombre del equipo local
+away                Nombre del equipo visitante
+home_goals          Goles del local (es RESULTADO, no feature)
+away_goals          Goles del visitante (es RESULTADO, no feature)
+
+===== VARIABLE OBJETIVO (TARGET) =====
+
+result              Resultado del partido. ESTO es lo que el modelo debe predecir:
+                      H = Home win (ganó el local)  -->  44.2% de los casos
+                      A = Away win (ganó visitante)  -->  31.8% de los casos
+                      D = Draw (empate)  -->  24.0% de los casos
+
+===== FEATURES TEMPORALES =====
+
+day_of_week         Día de la semana (0=Lunes, 1=Martes, ..., 5=Sábado, 6=Domingo)
+month               Mes del año (1=Enero ... 12=Diciembre)
+is_weekend          1 si el partido es sábado o domingo, 0 si es entre semana
+
+===== FEATURES DE ODDS / APUESTAS =====
+
+odds_home           Cuota Bet365 para victoria local.
+                    Ejemplo: 1.50 = favorito fuerte, 5.00 = no favorito
+                    Cuota más baja = más probable según el mercado
+odds_home_prob      Probabilidad implícita de victoria local = 1 / odds_home
+                    Ejemplo: 1/1.50 = 0.667 = 66.7% de probabilidad según Bet365
+odds_draw           Cuota Bet365 para empate
+odds_draw_prob      Probabilidad implícita de empate = 1 / odds_draw
+odds_away           Cuota Bet365 para victoria visitante
+odds_away_prob      Probabilidad implícita de victoria visitante = 1 / odds_away
+
+    NOTA IMPORTANTE SOBRE ODDS:
+    Las odds son features extremadamente poderosas porque resumen TODA la
+    información que tiene el mercado de apuestas (forma, lesiones, alineaciones,
+    motivación, etc.). Si quieres evaluar si tu modelo puede SUPERAR al mercado,
+    NO incluyas estas features. Si solo quieres el modelo más preciso posible,
+    inclúyelas.
+
+===== FEATURES ROLLING DEL EQUIPO LOCAL (promedio de últimos 5 partidos) =====
+
+Calculadas sobre los últimos 5 partidos del equipo local (como local Y visitante).
+Usan shift(1) = NO incluyen el partido que se está prediciendo.
+
+home_roll_goals_scored      Promedio de goles anotados en sus últimos 5 partidos
+home_roll_goals_conceded    Promedio de goles recibidos en sus últimos 5 partidos
+home_roll_points            Promedio de puntos ganados en últimos 5 (0 a 3.0)
+home_roll_win               Tasa de victorias en últimos 5 (0.0 = 0 victorias, 1.0 = 5 de 5)
+home_roll_loss              Tasa de derrotas en últimos 5 (0.0 a 1.0)
+home_roll_shots             Promedio de tiros totales en últimos 5
+home_roll_shots_target      Promedio de tiros a puerta en últimos 5
+home_roll_corners           Promedio de corners en últimos 5
+home_unbeaten_streak        Racha actual de partidos consecutivos sin perder (0, 1, 2, ...)
+
+===== FEATURES DE TEMPORADA DEL EQUIPO LOCAL =====
+
+Acumulados de la temporada actual ANTES del partido (shifted).
+
+home_season_matches         Partidos jugados hasta el momento en esta temporada
+home_season_points          Puntos acumulados en la temporada
+home_season_goals_for       Goles a favor acumulados
+home_season_goals_against   Goles en contra acumulados
+home_season_gd              Goal Difference - Diferencia de goles (GF - GC)
+home_season_wins            Victorias acumuladas en la temporada
+
+===== FORMA EN CASA / FUERA DEL EQUIPO LOCAL =====
+
+home_roll_home_points       Promedio de puntos del local solo en sus partidos como LOCAL
+                            (últimos 5 en casa). Puede tener ~9 valores nulos al inicio
+home_roll_away_points       Promedio de puntos del local solo en partidos como VISITANTE
+                            (últimos 5 fuera). Puede tener ~49 valores nulos al inicio
+
+===== FEATURES ROLLING DEL EQUIPO VISITANTE (misma lógica que local) =====
+
+away_roll_goals_scored      Promedio de goles anotados en últimos 5
+away_roll_goals_conceded    Promedio de goles recibidos en últimos 5
+away_roll_points            Promedio de puntos en últimos 5
+away_roll_win               Tasa de victorias en últimos 5
+away_roll_loss              Tasa de derrotas en últimos 5
+away_roll_shots             Promedio de tiros en últimos 5
+away_roll_shots_target      Promedio de tiros a puerta en últimos 5
+away_roll_corners           Promedio de corners en últimos 5
+away_unbeaten_streak        Racha sin perder del visitante
+
+===== FEATURES DE TEMPORADA DEL EQUIPO VISITANTE =====
+
+away_season_matches         Partidos jugados en la temporada
+away_season_points          Puntos acumulados
+away_season_goals_for       Goles a favor acumulados
+away_season_goals_against   Goles en contra acumulados
+away_season_gd              Diferencia de goles
+away_season_wins            Victorias acumuladas
+
+===== FORMA EN CASA / FUERA DEL EQUIPO VISITANTE =====
+
+away_roll_home_points       Puntos promedio del visitante en sus partidos como local
+away_roll_away_points       Puntos promedio del visitante en sus partidos como visitante
+
+===== FEATURES DIFERENCIALES (HOME - AWAY) =====
+
+Diferencia directa entre local y visitante. Valores positivos significan
+que el equipo local es MEJOR en esa métrica.
+
+diff_roll_goals_scored      Diferencia en promedio de goles anotados (últimos 5)
+diff_roll_points            Diferencia en promedio de puntos recientes
+diff_roll_win               Diferencia en tasa de victorias recientes
+diff_season_points          Diferencia en puntos acumulados de la temporada
+diff_season_gd              Diferencia en gol diferencia de la temporada
+diff_season_wins            Diferencia en victorias acumuladas de la temporada
+
+===== FEATURES HEAD-TO-HEAD (últimos 5 enfrentamientos directos) =====
+
+Historial de enfrentamientos previos entre estos dos equipos específicos
+(máximo últimos 5, pueden ser de temporadas anteriores).
+
+h2h_home_wins               Victorias del equipo LOCAL en los últimos 5 enfrentamientos
+h2h_away_wins               Victorias del equipo VISITANTE en los últimos 5 enfrentamientos
+h2h_draws                   Empates en los últimos 5 enfrentamientos
+h2h_matches                 Total de enfrentamientos previos encontrados (0 a 5)
+h2h_home_goals_avg          Promedio de goles del equipo local en enfrentamientos previos
+h2h_away_goals_avg          Promedio de goles del equipo visitante en enfrentamientos previos
+
+
+================================================================================
+NOTAS PARA MODELADO
+================================================================================
+
+1. VARIABLE OBJETIVO:
+   - Usa 'result' (H/D/A) para clasificación multiclase (3 clases)
+   - O simplifica: H=1, D/A=0 para predicción binaria "¿gana el local?"
+   - O: H=1, A=1, D=0 para "¿hay ganador?" (descartar empate)
+
+2. COLUMNAS A EXCLUIR COMO FEATURES:
+   - season, date, home, away  -->  son identificadores, no predictivos
+   - home_goals, away_goals  -->  son el resultado, no se conocen antes del partido
+
+3. FEATURES RECOMENDADAS PARA UN PRIMER MODELO:
+   - Las 6 features diferenciales (diff_*)  -->  resumen la diferencia de calidad
+   - Las odds (odds_*)  -->  si quieres máxima precisión
+   - h2h_*  -->  historial directo
+   - home_unbeaten_streak, away_unbeaten_streak  -->  momento actual
+
+4. DATA LEAKAGE (FUGA DE DATOS):
+   - Todas las features rolling usan shift(1): NO incluyen el partido actual
+   - Las odds son publicadas ANTES del partido (no hay leakage)
+   - Las stats in-game (shots, corners) en matches_odds.csv SÍ son del partido
+     actual (NO usarlas como features de predicción; solo se usan como rolling)
+
+5. VALORES NULOS:
+   - Se eliminan ~21 partidos automáticamente (primer partido de equipos nuevos)
+   - home_roll_home_points: ~9 nulls (primeros partidos de local)
+   - home_roll_away_points: ~49 nulls (primeros partidos como visitante)
+   - Recomendación: imputar con la media o eliminar esas filas
+
+6. ENRIQUECIMIENTO CON DATOS DE EQUIPO/JUGADOR:
+   - Puedes hacer merge con team_stats_*.csv por (season_label, team)
+   - Las stats de jugadores permiten crear features como:
+     "promedio de goles/90 de los delanteros del equipo"
+     "edad promedio del equipo"
+     "porcentaje de atajadas del portero titular"
+   - Estos merges requieren trabajo adicional de feature engineering
+
+7. BALANCE DE CLASES:
+   - H (local gana):      44.2%  (1640 partidos)
+   - A (visitante gana):  31.8%  (1179 partidos)
+   - D (empate):          24.0%  (890 partidos)
+   - Los empates son la clase más difícil de predecir
+   - Considerar técnicas: SMOTE, class_weight='balanced', o agrupar D con A
